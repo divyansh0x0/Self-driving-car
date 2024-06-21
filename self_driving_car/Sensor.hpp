@@ -1,18 +1,22 @@
+#include<inttypes.h>
+#define MOVE_RIGHT 1
+#define MOVE_LEFT -1
+#define MOVE_FORWARD 1
+#define MOVE_BACKWARD -1
+#define NO_MOVE 0
 enum LocationInfo{
-    FRONT,
-    FRONT_RIGHT,
-    FRONT_LEFT,
-    BACK,
-    BACK_RIGHT,
-    BACK_LEFT,
-    LEFT,
-    RIGHT
+    FRONT = 0,
+    FRONT_RIGHT = 1,
+    FRONT_LEFT=2,
+    BACK=3,
+    BACK_RIGHT=4,
+    BACK_LEFT=5,
+    LEFT=6,
+    RIGHT=7
 };
-enum CarMovement{
-    FORWARD,
-    BACKWARD,
-    TURN_LEFT,
-    TURN_RIGHT
+struct CarMovement{
+    short axial = 0;
+    short transverse = 0;
 };
 enum SensorType{
     ULTRASONIC,
@@ -34,12 +38,11 @@ struct UltraSoundSensor{
     LocationInfo location;
     SensorData data {ULTRASONIC,0,NO_OBSTACLE};
 };
-struct IRSenor{
+struct IRSensor{
     uint8_t pin;
     LocationInfo location;
     SensorData data{IR,0,NO_OBSTACLE};
 };
 
 
-
-void recommendCarMove(UltraSoundSensor** ultrasound_sensors, IRSenor** ir_sensors, CarMovement* CarMovement);
+void recommendCarMove(UltraSoundSensor* ultrasound_sensors, IRSensor* ir_sensors, CarMovement* CarMovement);

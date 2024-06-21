@@ -1,43 +1,111 @@
 #include "Sensor.hpp"
-UltraSoundSensor ultrasound_sensors[4] = {};
-IRSenor ir_sensors[6] = {};
+#define IN1 50
+#define IN2 51
+#define IN3 52
+#define IN4 53
+
+UltraSoundSensor UltrasonicSensors[4] = {};
+IRSensor IrSensors[6] = {};
 
 // pair of trigger and echo pins
-uint8_t ultrasound_sensor_pins[4][2] = {{1, 2}, {3, 4}, {4, 5}, {6, 7}};
+const uint8_t kUltrasonicSensorPins[4][2] = {{22, 23}, {24, 25}, {26, 27}, {28, 29}};
 
-uint8_t ir_sensor_pins[7] = {8, 9, 10, 11, 12, 13, 14};
+const uint8_t kIrSensorPins[8] = {34, 35, 36, 37, 38, 39, 40, 41};
+CarMovement kCarMovement{};
 
 void setup()
 {
+
 	Serial.begin(9600);
 
 	for (int i = 0; i < 4; i++)
 	{
-		ultrasound_sensors[i].triggerPin = ultrasound_sensor_pins[i][0];
-		ultrasound_sensors[i].echoPin = ultrasound_sensor_pins[i][1];
+		UltrasonicSensors[i].triggerPin = kUltrasonicSensorPins[i][0];
+		pinMode(UltrasonicSensors[i].triggerPin, OUTPUT);
+		UltrasonicSensors[i].echoPin = kUltrasonicSensorPins[i][1];
+		pinMode(UltrasonicSensors[i].echoPin, INPUT);
 	}
 
 	for (int i = 0; i < 6; i++)
 	{
-		ir_sensors[i].pin = ir_sensor_pins[i];
+		IrSensors[i].pin = kIrSensorPins[i];
 	}
 
-	ultrasound_sensors[0].location = FRONT_LEFT;
-	ultrasound_sensors[1].location = FRONT_RIGHT;
-	ultrasound_sensors[2].location = BACK_RIGHT;
-	ultrasound_sensors[3].location = BACK_LEFT;
+	UltrasonicSensors[0].location = FRONT_LEFT;
+	UltrasonicSensors[1].location = FRONT_RIGHT;
+	UltrasonicSensors[2].location = BACK_RIGHT;
+	UltrasonicSensors[3].location = BACK_LEFT;
 
-	ir_sensors[0].location = LEFT;
-	ir_sensors[1].location = FRONT_LEFT;
-	ir_sensors[2].location = FRONT;
-	ir_sensors[3].location = FRONT_RIGHT;
-	ir_sensors[4].location = RIGHT;
-	ir_sensors[5].location = BACK_RIGHT;
-	ir_sensors[6].location = BACK;
-	ir_sensors[7].location = BACK_LEFT;
-
+	IrSensors[0].location = LEFT;
+	IrSensors[1].location = FRONT_LEFT;
+	IrSensors[2].location = FRONT;
+	IrSensors[3].location = FRONT_RIGHT;
+	IrSensors[4].location = RIGHT;
+	IrSensors[5].location = BACK_RIGHT;
+	IrSensors[6].location = BACK;
+	IrSensors[7].location = BACK_LEFT;
 }
 
+void motorControlLeftSide(short spinDir)
+{
+	switch (spinDir)
+	{
+	case MOVE_FORWARD:
+		digitalWrite(IN1, HIGH);
+		digitalWrite(IN2, LOW);
+		break;
+	case MOVE_BACKWARD:
+		digitalWrite(IN1, LOW);
+		digitalWrite(IN2, HIGH);
+	default:
+		digitalWrite(IN1, LOW);
+		digitalWrite(IN2, LOW);
+		break;
+	}
+}
+void motorControlRightSide(short spinDir)
+{
+	switch (spinDir)
+	{
+	case MOVE_FORWARD:
+		digitalWrite(IN3, HIGH);
+		digitalWrite(IN4, LOW);
+		break;
+	case MOVE_BACKWARD:
+		digitalWrite(IN3, LOW);
+		digitalWrite(IN4, HIGH);
+	default:
+		digitalWrite(IN3, LOW);
+		digitalWrite(IN4, LOW);
+		break;
+	}
+}
+int moveCar()
+{
+	short spinDir = kCarMovement.axial;
+
+	switch (kCarMovement.transverse)
+	{
+	case NO_MOVE:
+		motorControlLeftSide(spinDir);
+		motorControlLeftSide(spinDir);
+		break;
+	case MOVE_LEFT: 
+		motorControlLeftSide(spinDir);
+		motorControlRightSide(0);
+	case MOVE_RIGHT:
+		motorControlLeftSide(0);
+		motorControlRightSide(spinDir);
+	default:
+		Serial.println("Invalid direction provided, stopping car");
+		motorControlLeftSide(0);
+		motorControlRightSide(0);
+	};
+	return 0;
+}
 void loop()
 {
+
+	recommendCarMove(UltrasonicSensors, IrSensors, &kCarMovement);
+	moveCar();
 }
