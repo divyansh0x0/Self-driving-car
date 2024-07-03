@@ -11,7 +11,7 @@ IRSensor IrSensors[6] = {};
 const uint8_t kUltrasonicSensorPins[4][2] = {{22, 23}, {24, 25}, {26, 27}, {28, 29}};
 
 const uint8_t kIrSensorPins[8] = {34, 35, 36, 37, 38, 39, 40, 41};
-CarMovement kCarMovement{};
+CarMovement RecommendedCarMovement{};
 
 void setup()
 {
@@ -84,9 +84,9 @@ void motorControlRightSide(short spinDir)
 }
 void moveCar()
 {
-	short spinDir = kCarMovement.axial;
+	short spinDir = CarMovement.axial;
 
-	switch (kCarMovement.transverse)
+	switch (CarMovement.transverse)
 	{
 	case NO_MOVE:
 		motorControlLeftSide(spinDir);
@@ -110,6 +110,6 @@ void moveCar()
 void loop()
 {
 
-	recommendCarMove(UltrasonicSensors, IrSensors, &kCarMovement);
+	recommendCarMove(UltrasonicSensors, IrSensors, &CarMovement);
 	moveCar();
 }
