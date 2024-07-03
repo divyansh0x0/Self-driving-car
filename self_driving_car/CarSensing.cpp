@@ -3,37 +3,39 @@
 #define ARRAYLEN(arr) sizeof(arr) / sizeof(arr[0])
 #define SOUND_SPEED_CM_PER_MICROS 0.034
 #define MIN_DISTANCE_CM 10
-#define MIN_DURATION MIN_DISTANCE_CM / SOUND_SPEED_CM_PER_MICROS * 2
+// multiply by 2 because it is a round trip
+#define MAX_DURATION MIN_DISTANCE_CM / SOUND_SPEED_CM_PER_MICROS * 2 
 
-int ObstaclesDetectedArr[8] = {};
-void readSensor(UltraSoundSensor *ultrasound_sensors, SensorData *sensor_data)
+int obstacles_detected_arr[NUM_LOCATIONS];
+void readSensor(UltrasoundSensor *ultrasound_sensors, SensorData *sensor_data)
 {
-    int trigPin = ultrasound_sensors->triggerPin;
-    int echoPin = ultrasound_sensors->triggerPin;
-    digitalWrite(trigPin, LOW);
+    int trig_pin = ultrasound_sensors->trigger_pin;
+    int echo_pin = ultrasound_sensors->echo_pin;
+    digitalWrite(trig_pin, LOW);
     delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
+    digitalWrite(trig_pin, HIGH);
     delayMicroseconds(2);
-    digitalWrite(trigPin, LOW);
+    digitalWrite(trig_pin, LOW);
     unsigned int t1 = micros();
-    unsigned long duration_micros = pulseIn(echoPin, HIGH, MIN_DURATION); // multiply by 2 because it is a round trip
+    unsigned long duration_micros = pulseIn(echo_pin, HIGH, MAX_DURATION); 
     unsigned int t2 = micros();
-    if (duration_micros == 0)
-    { // I believe it will never be zero except when timed out
+    if (duration_micros == 0 || duration_micros > MAX_DURATION)
+    {
+        // Handle timeout or abnormal readings
         sensor_data->obstacle_status = NO_OBSTACLE;
         sensor_data->obstacle_distance = 0;
     }
     else
     {
-        unsigned long distance_cm = duration_micros * SOUND_SPEED_CM_PER_MICROS / 2; // division by two because it is a round trip
+        unsigned long distance_cm = duration_micros * SOUND_SPEED_CM_PER_MICROS / 2;// division by two because it is a round trip
         sensor_data->obstacle_distance = distance_cm;
         sensor_data->obstacle_status = OBSTACLE_DETECTED;
     }
 }
 void readSensor(IRSensor *ir_sensor, SensorData *sensor_data)
 {
-    int sensorState = digitalRead(ir_sensor->pin);
-    if (sensorState == HIGH)
+    int sensor_state = digitalRead(ir_sensor->pin);
+    if (sensor_state == HIGH)
     {
         sensor_data->obstacle_status = OBSTACLE_DETECTED;
     }
@@ -46,117 +48,98 @@ void readSensor(IRSensor *ir_sensor, SensorData *sensor_data)
 
 bool canCarMove()
 {
-    return (ObstaclesDetectedArr[BACK] | ObstaclesDetectedArr[FRONT]) | (ObstaclesDetectedArr[LEFT] & ObstaclesDetectedArr[FRONT_LEFT] & ObstaclesDetectedArr[FRONT_RIGHT] & ObstaclesDetectedArr[RIGHT] & ObstaclesDetectedArr[BACK_LEFT] & ObstaclesDetectedArr[BACK_RIGHT]) == 1;
+    uint8_t condition1 = (obstacles_detected_arr[BACK] | obstacles_detected_arr[FRONT]);
+    uint8_t condition2 = (obstacles_detected_arr[LEFT] & obstacles_detected_arr[FRONT_LEFT] & obstacles_detected_arr[FRONT_RIGHT] & obstacles_detected_arr[RIGHT] & obstacles_detected_arr[BACK_LEFT] & obstacles_detected_arr[BACK_RIGHT]);
+    return (condition1 | condition2)  == 1;
 }
-void recommendCarMove(UltraSoundSensor *ultrasound_sensors, IRSensor *ir_sensors, CarMovement *CarMovement)
+void printSensorData(const char *sensor_type, LocationInfo location, SensorData *sensor_data)
 {
-    int i = 0;
-    while (i < ARRAYLEN(ultrasound_sensors))
-    {
-        readSensor(&ultrasound_sensors[i], &ultrasound_sensors[i].data);
-        ++i;
-    }
-    while (i < ARRAYLEN(ir_sensors))
-    {
-        readSensor(&ir_sensors[i], &ir_sensors[i].data);
-        ++i;
-    }
-    short prefAxialMove = 0;
-    short prefTransverseMove = 0;
-    for (int i = ARRAYLEN(ir_sensors) - 1; i >= 0; i--)
-    {
-        IRSensor *sensor = &ir_sensors[i];
-        SensorData *sensor_data = &sensor->data;
-        Serial.println("-----------------------------------------------------------");
-        String sensorName = "IR " + sensor->location;
-        Serial.println("SENSOR_TYPE:" + sensorName);
-        Serial.println("Obstacle Status " + (sensor_data->obstacle_status));
-        Serial.println("-----------------------------------------------------------");
+    Serial.println("-----------------------------------------------------------");
+    char sensor_name[50];
+    snprintf(sensor_name, sizeof(sensor_name), "%s %d", sensor_type, location);
+    Serial.println("SENSOR_TYPE: " + String(sensor_name));
+    Serial.println("Obstacle Status: " + String(sensor_data->obstacle_status));
+    Serial.println("-----------------------------------------------------------");
 
-        if (sensor_data->obstacle_status == OBSTACLE_DETECTED)
-
-            switch (sensor_data->obstacle_status)
-            {
-            case OBSTACLE_DETECTED:
-                Serial.println("\tDistance of obstacle (cm): " + (sensor_data->obstacle_distance));
-                ObstaclesDetectedArr[sensor->location] = 1;
-                break;
-
-            default:
-                ObstaclesDetectedArr[sensor->location] = 0;
-                break;
-            }
+    if (sensor_data->obstacle_status == OBSTACLE_DETECTED)
+    {
+        Serial.println("\tDistance of obstacle (cm): " + String(sensor_data->obstacle_distance));
+        obstacles_detected_arr[location] = 1;
     }
+    else
+    {
+        obstacles_detected_arr[location] = 0;
+    }
+}
+
+void readUltrasoundSensors(UltrasoundSensor *sensors, size_t num_sensors)
+{
+    for (size_t i = 0; i < num_sensors; ++i)
+    {
+        readSensor(&sensors[i], &sensors[i].data);
+        printSensorData("ULTRASONIC", sensors[i].location, &sensors[i].data);
+    }
+}
+
+void readIRSensors(IRSensor *sensors, size_t num_sensors)
+{
+    for (size_t i = 0; i < num_sensors; ++i)
+    {
+        readSensor(&sensors[i], &sensors[i].data);
+        printSensorData("IR", sensors[i].location, &sensors[i].data);
+    }
+}
+
+void recommendCarMove(UltrasoundSensor *ultrasound_sensors, IRSensor *ir_sensors, CarMovement *car_move)
+{
+    // First read ir sensors. If the car can move then we will move on to ultrasonic sensors
+    readIRSensors(ir_sensors, ARRAYLEN(ir_sensors));
     if (!canCarMove())
     {
-        CarMovement->axial = 0;
-        CarMovement->transverse = 0;
+        car_move->axial = 0;
+        car_move->transverse = 0;
         return;
     }
-    // Read ultrasound sensors
-    for (int i = ARRAYLEN(ultrasound_sensors) - 1; i >= 0; i--)
-    {
-        UltraSoundSensor *sensor = &ultrasound_sensors[i];
-        SensorData *sensor_data = &sensor->data;
-        Serial.println("-----------------------------------------------------------");
-        String sensorName = "ULTRASONIC " + sensor->location;
-        Serial.println("SENSOR_TYPE:" + sensorName);
-        Serial.println("Obstacle Status " + (sensor_data->obstacle_status));
-        Serial.println("-----------------------------------------------------------");
-
-        if (sensor_data->obstacle_status == OBSTACLE_DETECTED)
-
-            switch (sensor_data->obstacle_status)
-            {
-            case OBSTACLE_DETECTED:
-                Serial.println("\tDistance of obstacle (cm): " + (sensor_data->obstacle_distance));
-                ObstaclesDetectedArr[sensor->location] = 1;
-                break;
-
-            default:
-                ObstaclesDetectedArr[sensor->location] = 0;
-                break;
-            }
-    }
-
+    readUltrasoundSensors(ultrasound_sensors, ARRAYLEN(ultrasound_sensors));
     // decide move based on data from ultrasound sensors and left right ir sensors
+
     // check fronts
-    if ((ObstaclesDetectedArr[FRONT_LEFT] & ObstaclesDetectedArr[FRONT_RIGHT]) == 1)
+    if ((obstacles_detected_arr[FRONT_LEFT] & obstacles_detected_arr[FRONT_RIGHT]) == 1)
     {
         // if whole forward area is empty
-        CarMovement->axial = MOVE_FORWARD;
-        CarMovement->transverse = NO_MOVE;
+        car_move->axial = MOVE_FORWARD;
+        car_move->transverse = NO_MOVE;
     }
-    else if ((ObstaclesDetectedArr[FRONT_RIGHT] | ObstaclesDetectedArr[RIGHT]) == 1)
+    else if ((obstacles_detected_arr[FRONT_RIGHT] | obstacles_detected_arr[RIGHT]) == 1)
     {
         // if right area is empty
-        CarMovement->axial = MOVE_FORWARD;
-        CarMovement->transverse = MOVE_RIGHT;
+        car_move->axial = MOVE_FORWARD;
+        car_move->transverse = MOVE_RIGHT;
     }
 
-    else if ((ObstaclesDetectedArr[FRONT_LEFT] | ObstaclesDetectedArr[LEFT]) == 1)
+    else if ((obstacles_detected_arr[FRONT_LEFT] | obstacles_detected_arr[LEFT]) == 1)
     {
         // if left area is empty
-        CarMovement->axial = MOVE_FORWARD;
-        CarMovement->transverse = MOVE_LEFT;
+        car_move->axial = MOVE_FORWARD;
+        car_move->transverse = MOVE_LEFT;
     }
     // check back
-    else if ((ObstaclesDetectedArr[BACK_LEFT] & ObstaclesDetectedArr[BACK_RIGHT]) == 1)
+    else if ((obstacles_detected_arr[BACK_LEFT] & obstacles_detected_arr[BACK_RIGHT]) == 1)
     {
         // if whole back area is empty
-        CarMovement->axial = MOVE_FORWARD;
-        CarMovement->transverse = MOVE_RIGHT;
+        car_move->axial = MOVE_FORWARD;
+        car_move->transverse = MOVE_RIGHT;
     }
-    else if ((ObstaclesDetectedArr[BACK_RIGHT] | ObstaclesDetectedArr[RIGHT]) == 1)
+    else if ((obstacles_detected_arr[BACK_RIGHT] | obstacles_detected_arr[RIGHT]) == 1)
     {
         // if right area is empty
-        CarMovement->axial = MOVE_BACKWARD;
-        CarMovement->transverse = MOVE_RIGHT;
+        car_move->axial = MOVE_BACKWARD;
+        car_move->transverse = MOVE_RIGHT;
     }
-    else if ((ObstaclesDetectedArr[FRONT_LEFT] | ObstaclesDetectedArr[LEFT]) == 1)
+    else if ((obstacles_detected_arr[FRONT_LEFT] | obstacles_detected_arr[LEFT]) == 1)
     {
         // if whole right area is empty
-        CarMovement->axial = MOVE_BACKWARD;
-        CarMovement->transverse = MOVE_LEFT;
+        car_move->axial = MOVE_BACKWARD;
+        car_move->transverse = MOVE_LEFT;
     }
 }

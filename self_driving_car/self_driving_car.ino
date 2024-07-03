@@ -4,7 +4,7 @@
 #define IN3 52
 #define IN4 53
 
-UltraSoundSensor UltrasonicSensors[4] = {};
+UltrasoundSensor UltrasonicSensors[4] = {};
 IRSensor IrSensors[6] = {};
 
 // pair of trigger and echo pins
@@ -20,10 +20,10 @@ void setup()
 
 	for (int i = 0; i < 4; i++)
 	{
-		UltrasonicSensors[i].triggerPin = kUltrasonicSensorPins[i][0];
-		pinMode(UltrasonicSensors[i].triggerPin, OUTPUT);
-		UltrasonicSensors[i].echoPin = kUltrasonicSensorPins[i][1];
-		pinMode(UltrasonicSensors[i].echoPin, INPUT);
+		UltrasonicSensors[i].trigger_pin = kUltrasonicSensorPins[i][0];
+		pinMode(UltrasonicSensors[i].trigger_pin, OUTPUT);
+		UltrasonicSensors[i].echo_pin = kUltrasonicSensorPins[i][1];
+		pinMode(UltrasonicSensors[i].echo_pin, INPUT);
 	}
 
 	for (int i = 0; i < 6; i++)
@@ -57,6 +57,7 @@ void motorControlLeftSide(short spinDir)
 	case MOVE_BACKWARD:
 		digitalWrite(IN1, LOW);
 		digitalWrite(IN2, HIGH);
+		break;
 	default:
 		digitalWrite(IN1, LOW);
 		digitalWrite(IN2, LOW);
@@ -74,13 +75,14 @@ void motorControlRightSide(short spinDir)
 	case MOVE_BACKWARD:
 		digitalWrite(IN3, LOW);
 		digitalWrite(IN4, HIGH);
+		break;
 	default:
 		digitalWrite(IN3, LOW);
 		digitalWrite(IN4, LOW);
 		break;
 	}
 }
-int moveCar()
+void moveCar()
 {
 	short spinDir = kCarMovement.axial;
 
@@ -93,15 +95,17 @@ int moveCar()
 	case MOVE_LEFT: 
 		motorControlLeftSide(spinDir);
 		motorControlRightSide(0);
+		break;
 	case MOVE_RIGHT:
 		motorControlLeftSide(0);
 		motorControlRightSide(spinDir);
+		break;
 	default:
 		Serial.println("Invalid direction provided, stopping car");
 		motorControlLeftSide(0);
 		motorControlRightSide(0);
+		break;
 	};
-	return 0;
 }
 void loop()
 {

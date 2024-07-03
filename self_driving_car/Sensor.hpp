@@ -1,4 +1,5 @@
 #include<inttypes.h>
+#define NUM_LOCATIONS 8 //Total possible locations of sensors
 #define MOVE_RIGHT 1
 #define MOVE_LEFT -1
 #define MOVE_FORWARD 1
@@ -32,9 +33,9 @@ struct SensorData{
     ObstacleStatus obstacle_status;
 };
 
-struct UltraSoundSensor{
-    uint8_t triggerPin;
-    uint8_t echoPin;
+struct UltrasoundSensor{
+    uint8_t trigger_pin;
+    uint8_t echo_pin;
     LocationInfo location;
     SensorData data {ULTRASONIC,0,NO_OBSTACLE};
 };
@@ -44,5 +45,4 @@ struct IRSensor{
     SensorData data{IR,0,NO_OBSTACLE};
 };
 
-
-void recommendCarMove(UltraSoundSensor* ultrasound_sensors, IRSensor* ir_sensors, CarMovement* CarMovement);
+void recommendCarMove(UltrasoundSensor* ultrasound_sensors, IRSensor* ir_sensors, CarMovement* car_move);
