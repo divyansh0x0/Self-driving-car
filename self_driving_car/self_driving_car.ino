@@ -84,9 +84,9 @@ void motorControlRightSide(short spinDir)
 }
 void moveCar()
 {
-	short spinDir = CarMovement.axial;
+	short spinDir = RecommendedCarMovement.axial;
 
-	switch (CarMovement.transverse)
+	switch (RecommendedCarMovement.transverse)
 	{
 	case NO_MOVE:
 		motorControlLeftSide(spinDir);
@@ -110,6 +110,6 @@ void moveCar()
 void loop()
 {
 
-	recommendCarMove(UltrasonicSensors, IrSensors, &CarMovement);
+	recommendCarMove(UltrasonicSensors, IrSensors, &RecommendedCarMovement);
 	moveCar();
 }
