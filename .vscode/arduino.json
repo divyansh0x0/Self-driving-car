@@ -3,5 +3,6 @@
     "output": "build",
     "configuration": "cpu=atmega2560",
     "board": "arduino:avr:mega",
-    "programmer": "arduinoisp"
+    "programmer": "arduinoisp",
+    "port": "COM5"
 }

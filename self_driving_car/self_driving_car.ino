@@ -1,49 +1,41 @@
 #include "Sensor.hpp"
+#include "Debug.hpp"
 #define IN1 50
 #define IN2 51
 #define IN3 52
 #define IN4 53
+#define ARRAYLEN(arr) *(&arr + 1) - arr
 
-UltrasoundSensor UltrasonicSensors[4] = {};
-IRSensor IrSensors[6] = {};
+#define SIZE 4
 
-// pair of trigger and echo pins
-const uint8_t kUltrasonicSensorPins[4][2] = {{22, 23}, {24, 25}, {26, 27}, {28, 29}};
+UltrasonicSensor UltrasonicSensors[SIZE] = {{2,3,FRONT_LEFT},{4,5,FRONT_RIGHT},{6,7,BACK_RIGHT},{8,9,BACK_LEFT}}; //{trig,echo,loc}
+IRSensor IrSensors[SIZE] = {{40,FRONT},{41,RIGHT},{42, BACK},{43,LEFT}};
 
-const uint8_t kIrSensorPins[8] = {34, 35, 36, 37, 38, 39, 40, 41};
+
 CarMovement RecommendedCarMovement{};
 
 void setup()
 {
-
+	setDebugMode(true);
 	Serial.begin(9600);
 
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < ARRAYLEN(UltrasonicSensors); i++)
 	{
-		UltrasonicSensors[i].trigger_pin = kUltrasonicSensorPins[i][0];
-		pinMode(UltrasonicSensors[i].trigger_pin, OUTPUT);
-		UltrasonicSensors[i].echo_pin = kUltrasonicSensorPins[i][1];
-		pinMode(UltrasonicSensors[i].echo_pin, INPUT);
-	}
+		uint8_t trig = UltrasonicSensors[i].trigger_pin;
+		uint8_t echo = UltrasonicSensors[i].echo_pin;
 
-	for (int i = 0; i < 6; i++)
+		pinMode(trig, OUTPUT);
+		pinMode(echo, INPUT);
+		digitalWrite(echo,LOW);
+		digitalWrite(trig,LOW);
+	}
+	for (int i = 0; i < ARRAYLEN(IrSensors); i++)
 	{
-		IrSensors[i].pin = kIrSensorPins[i];
+		uint8_t out = IrSensors[i].pin;
+
+		pinMode(out, INPUT);
+		digitalWrite(out,LOW);
 	}
-
-	UltrasonicSensors[0].location = FRONT_LEFT;
-	UltrasonicSensors[1].location = FRONT_RIGHT;
-	UltrasonicSensors[2].location = BACK_RIGHT;
-	UltrasonicSensors[3].location = BACK_LEFT;
-
-	IrSensors[0].location = LEFT;
-	IrSensors[1].location = FRONT_LEFT;
-	IrSensors[2].location = FRONT;
-	IrSensors[3].location = FRONT_RIGHT;
-	IrSensors[4].location = RIGHT;
-	IrSensors[5].location = BACK_RIGHT;
-	IrSensors[6].location = BACK;
-	IrSensors[7].location = BACK_LEFT;
 }
 
 void motorControlLeftSide(short spinDir)
@@ -85,31 +77,51 @@ void motorControlRightSide(short spinDir)
 void moveCar()
 {
 	short spinDir = RecommendedCarMovement.axial;
+	log(spinDir > 0 ? "Moving forward" : spinDir < 0 ? "Moving back" : "Car stopped" );
 
 	switch (RecommendedCarMovement.transverse)
 	{
 	case NO_MOVE:
 		motorControlLeftSide(spinDir);
-		motorControlLeftSide(spinDir);
+		motorControlRightSide(spinDir);
 		break;
 	case MOVE_LEFT: 
+		log("Turning left");
 		motorControlLeftSide(spinDir);
 		motorControlRightSide(0);
 		break;
 	case MOVE_RIGHT:
+		log("Turning right");
 		motorControlLeftSide(0);
 		motorControlRightSide(spinDir);
 		break;
 	default:
-		Serial.println("Invalid direction provided, stopping car");
+		log("Invalid direction provided, stopping car");
 		motorControlLeftSide(0);
 		motorControlRightSide(0);
 		break;
 	};
 }
+
+
 void loop()
 {
-
-	recommendCarMove(UltrasonicSensors, IrSensors, &RecommendedCarMovement);
+	recommendCarMove(IrSensors, SIZE, UltrasonicSensors, SIZE, &RecommendedCarMovement, true);
 	moveCar();
+	delay(50);
+	// uint8_t trig_pin = 10;
+    // uint8_t echo_pin = 11;
+	// digitalWrite(trig_pin,HIGH);
+    // delayMicroseconds(10);
+    // digitalWrite(trig_pin, LOW);
+
+    // // unsigned int t1 = micros();
+    // unsigned long duration_micros = pulseIn(echo_pin, HIGH); 
+    // // unsigned int t2 = micros();
+	// if (duration_micros / 1000 <  38){
+	// 	log("Timeout");
+	// }
+    // unsigned long distance_cm = duration_micros /58;// division by two because it is a round trip
+	// log("Triggering pin:" + String(trig_pin) + ", " + String(echo_pin) + "|| Duration (micros)" + String(duration_micros) + "|| DISTANCE: " + String(distance_cm) + "cm");
+	// delay(100);
 }
